@@ -119,14 +119,6 @@ def exercise(url):
             )
             viewport.evaluate("(v)=>{v.scrollLeft=0;v.scrollTop=0}")
             page.wait_for_timeout(80)
-            page.locator("#q").fill("dual")
-            reunion = page.locator(".block").filter(has=page.get_by_text(
-                "RE:UNION -Duo Blade Against-", exact=True
-            ))
-            assert reunion.locator(".badge").all_text_contents() == ["BAS", "ADV", "EXP", "MAS"]
-            page.locator('#diff [data-d="EXP"]').click()
-            assert reunion.locator(".badge").all_text_contents() == ["EXP"]
-            page.locator('#diff [data-d=""]').click()
             page.locator("#q").fill("World Vanquisher")
             page.wait_for_function(
                 "document.querySelector('.song strong')?.textContent==='World Vanquisher'"

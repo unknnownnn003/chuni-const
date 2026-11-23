@@ -132,9 +132,13 @@ function update() {
   for (const s of db.songs) {
     const tutorial = tutorialIds.has(s.id);
     if (category && !s.genres.includes(category)) continue;
-    if (!s.search.includes(query)) continue;
+    const match = s.search.includes(query);
     const cs = s.charts.filter((c) => {
-      if (difficulty && c.d !== difficulty) return false;
+      if (
+        (difficulty && c.d !== difficulty) ||
+        (!match && !c.search.includes(query))
+      )
+        return false;
       return columns.some((i) => {
         const v = c.timeline[i];
         if (vi !== "" && !v && !c.marks?.[i]) return false;
@@ -153,7 +157,7 @@ function update() {
     });
     if (
       !cs.length &&
-      (s.charts.length || difficulty || lo || hi || vi !== "")
+      (s.charts.length || !match || difficulty || lo || hi || vi !== "")
     )
       continue;
     const level =
@@ -292,11 +296,9 @@ async function init() {
   ).json();
   db = await pack(m.index);
   for (const s of db.songs) {
-    s.search = norm([
-      s.title, s.artist, s.num, ...s.aliases,
-      ...s.charts.flatMap((c) => c.designers),
-    ].join("\n"));
+    s.search = norm([s.title, s.artist, s.num, ...s.aliases].join("\n"));
     for (const c of s.charts) {
+      c.search = norm(c.designers.join("\n"));
       let ptr = 0,
         code = 0;
       c.timeline = db.versions.map((_, i) => {
