@@ -104,7 +104,7 @@ def exercise(url):
             box = viewport.bounding_box()
             assert abs(page.locator(".song").first.bounding_box()["x"] - box["x"]) < 2
             assert abs(page.locator("#head").bounding_box()["y"] - box["y"]) < 2
-            pin = page.locator(".song").first.bounding_box()
+            pin = page.locator(".song-cell").first.bounding_box()
             for selector in (".diffhead", ".block > .badge"):
                 frozen = page.locator(selector).first.bounding_box()
                 assert abs(frozen["x"] - (pin["x"] + pin["width"])) < 2
@@ -131,6 +131,24 @@ def exercise(url):
                 "document.querySelector('.song strong')?.textContent==='World Vanquisher'"
             )
             assert page.locator(".song").count() > 0
+            song_cell = page.locator(".song-cell").first
+            links = song_cell.locator(".song-links a")
+            for link, destination in zip(links.all(), [
+                "https://wikiwiki.jp/chunithmwiki/World%20Vanquisher",
+                "https://sdvx.in/chunithm/_/viewer.php?id=03038&diff=mst",
+            ], strict=True):
+                assert link.get_attribute("href") == destination
+                assert link.get_attribute("target") == "_blank"
+            wiki, score = [link.bounding_box() for link in links.all()]
+            assert abs(wiki["x"] - score["x"]) < 1
+            assert wiki["y"] + wiki["height"] <= score["y"]
+            page.context.route("https://sdvx.in/**", lambda route: route.fulfill(body="SDVX.IN"))
+            with page.expect_popup() as popup:
+                links.nth(1).click()
+            popup.value.wait_for_load_state()
+            assert popup.value.url == links.nth(1).get_attribute("href")
+            popup.value.close()
+            assert not page.locator("dialog").is_visible()
             page.locator(".song").first.click()
             page.wait_for_selector("dialog[open] .mini")
             assert page.locator(".mini tbody tr").count() == 22

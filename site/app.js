@@ -216,6 +216,31 @@ function update() {
   range = "";
   draw();
 }
+const wikiTitles = new Map([
+  ["1/3の純情な感情", "1／3の純情な感情"],
+  ["]-[|/34<#!", "ヒバチ"],
+  ['≠彡"/了→', "キミツアー"],
+  ["Sinfonie Nr. 9 d-moll op. 125 (Master)", "Sinfonie Nr. 9 d-moll op. 125"],
+]);
+function songLinks(song) {
+  const wikiTitle = wikiTitles.get(song.title) ?? song.title;
+  const wikiPath = wikiTitle.split("/").map((part) =>
+    encodeURIComponent(part).replace(/[!'()*]/g, (char) =>
+      `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+    ),
+  ).join("/");
+  const wiki = `https://wikiwiki.jp/chunithmwiki/${wikiPath}`;
+  const wikiLabel = escape(`${song.title} · CHUNITHM Wiki（新标签页）`);
+  const sdvxLabel = escape(`${song.title} · SDVX.IN 谱面（新标签页）`);
+  const chart = song.sdvx;
+  const score = chart
+    ? `<a class="song-link score-link" href="https://sdvx.in/chunithm/_/viewer.php?${escape(new URLSearchParams({ id: chart[0], diff: chart[1] }))}" target="_blank" rel="noopener noreferrer" aria-label="${sdvxLabel}" title="${sdvxLabel}">♫</a>`
+    : '<span class="song-link score-link" role="img" aria-label="暂无可确认的 SDVX.IN 谱面直链" title="暂无可确认的 SDVX.IN 谱面直链">♫</span>';
+  return `<div class="song-links">
+    <a class="song-link wiki-link" href="${escape(wiki)}" target="_blank" rel="noopener noreferrer" aria-label="${wikiLabel}" title="${wikiLabel}">▤</a>
+    ${score}
+  </div>`;
+}
 function draw() {
   if (!db) return;
   let l = 0,
@@ -244,7 +269,12 @@ function draw() {
           ? '<div class="badge">-</div>' + columns.map((i) => cellHtml(null, i, true)).join("")
           : '<div class="badge">无谱面</div>';
       }
-      return `<div class="block" style="top:${y}px"><button class="song ${cs.length < 2 ? "single" : ""}" style="grid-row:span ${Math.max(1, cs.length)}" data-id="${escape(s.id)}" title="${escape(s.title)}">${cover(s)}<span><strong>${escape(s.title)}</strong><small>${escape(s.artist || "曲师未知")}</small></span></button>${rows}</div>`;
+      return `<div class="block" style="top:${y}px">
+        <div class="song-cell${cs.length < 2 ? " single" : ""}" style="grid-row:span ${Math.max(1, cs.length)}">
+          <button type="button" class="song" data-id="${escape(s.id)}" title="${escape(s.title)}">${cover(s)}<span><strong>${escape(s.title)}</strong><small>${escape(s.artist || "曲师未知")}</small></span></button>
+          ${songLinks(s)}
+        </div>${rows}
+      </div>`;
     })
     .join("");
   $("body").innerHTML =
@@ -305,8 +335,15 @@ async function init() {
   const m = await (
     await fetch("data/manifest.json", { cache: "no-cache" })
   ).json();
-  db = await pack(m.index);
+  const [catalog, sdvxLinks] = await Promise.all([
+    pack(m.index),
+    fetch("data/sdvx-links.json", { cache: "no-cache" })
+      .then((response) => response.ok ? response.json() : {})
+      .catch(() => ({})),
+  ]);
+  db = catalog;
   for (const s of db.songs) {
+    s.sdvx = sdvxLinks[s.id];
     s.search = norm([s.title, s.artist, s.num, ...s.aliases].join("\n"));
     for (const c of s.charts) {
       c.search = norm(c.designers.join("\n"));

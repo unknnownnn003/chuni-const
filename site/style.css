@@ -344,7 +344,8 @@ button.on {
   display: none;
 }
 #viewport.dragging,
-#viewport.dragging .song {
+#viewport.dragging .song,
+#viewport.dragging .song-link {
   cursor: grabbing;
 }
 #matrix {
@@ -378,7 +379,7 @@ button.on {
   border-right: 1px solid var(--line);
 }
 #head .namehead,
-.song {
+.song-cell {
   position: sticky;
   left: 0;
   z-index: 2;
@@ -437,18 +438,57 @@ button.on {
 .block > .badge {
   background: var(--row-bg);
 }
+.song-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-right: 1px solid #47524e;
+  border-bottom: 1px solid #46504d;
+}
 .song {
   border: 0;
   border-radius: 0;
-  border-right: 1px solid #47524e;
-  border-bottom: 1px solid #46504d;
+  background: transparent;
   display: flex;
   align-items: center;
   text-align: left;
-  padding: 5px 12px;
+  padding: 5px 4px 5px 12px;
   gap: 10px;
+  min-width: 0;
   overflow: hidden;
-  align-self: stretch;
+}
+.song:focus-visible,
+a.song-link:focus-visible {
+  outline-offset: -2px;
+}
+.song-links {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  margin-inline-end: 4px;
+}
+.song-link {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--muted);
+  font: 15px/1 "Segoe UI Symbol", sans-serif;
+}
+a.song-link:hover,
+a.song-link:focus-visible {
+  background: #323e37;
+  color: var(--lime);
+}
+span.song-link {
+  opacity: 0.38;
+}
+.single .song-links {
+  gap: 0;
+}
+.single .song-link {
+  height: 16px;
+  font-size: 12px;
 }
 .song:hover {
   background: #323e37;
@@ -461,11 +501,11 @@ button.on {
   background: #36413a;
   flex: none;
 }
-.song.single .cover {
+.single .song .cover {
   width: 24px;
   height: 24px;
 }
-.song.single small {
+.single .song small {
   display: none;
 }
 .song span {
@@ -506,6 +546,12 @@ button.on {
 }
 .cell {
   gap: 3px;
+}
+@media (hover: hover) {
+  #viewport:not(.dragging) .cell:hover {
+    background-color: color-mix(in srgb, var(--row-bg), var(--lime) 14%);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line), var(--lime) 65%);
+  }
 }
 .cell i {
   font-size: 9px;
