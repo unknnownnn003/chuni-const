@@ -37,13 +37,11 @@ const flags = {
 };
 const table = $("viewport"),
   matrix = $("matrix"),
-  modal = $("modal"),
-  cache = new Map();
+  modal = $("modal");
 let db,
   groups = [],
   columns = [],
   difficulty = "",
-  opened = null,
   source = null,
   frame = 0,
   range = "",
@@ -234,7 +232,6 @@ function transition(fn) {
 }
 function close() {
   if (!modal.open) return;
-  opened = null;
   transition(() => {
     modal.close();
     if (source?.isConnected) {
@@ -247,74 +244,17 @@ function close() {
     source = null;
   });
 }
-const kinds = {
-  released: "配信",
-  removed: "删除",
-  restored: "恢复配信",
-  revision: "版本修订",
-  hdd_revision: "HDD 修订",
-  observation_gap: "观测间断",
-  reobserved: "再次观测",
-  file_observed: "文件首次观测",
-  first_hdd_observation: "HDD 首次观测",
-  removal_boundary_candidate: "候选删除边界",
-  missing_from_local_overlay: "本地资源缺失",
-  hdd_disabled: "HDD 停用",
-  hdd_reappeared: "HDD 再次出现",
-};
-function showEvents(events) {
-  let limit = 40;
-  const host = $("events");
-  function render() {
-    host.innerHTML =
-      events
-        .slice(0, limit)
-        .map(
-          ([d, v, date, earliest, latest, kind, field, a, b, batch]) =>
-            `<div class="event"><b>${escape(date || [earliest, latest].filter(Boolean).join(" ～ ") || "日期未确定")}</b>　${escape(kinds[kind] || kind)} · ${escape(d)}<small>${escape(v || batch)} / ${escape(field)}　${escape(typeof a === "object" ? JSON.stringify(a) : a)} → ${escape(typeof b === "object" ? JSON.stringify(b) : b)}</small></div>`,
-        )
-        .join("") || "无事件记录";
-    if (limit < events.length) {
-      const more = document.createElement("button");
-      more.textContent = `继续显示（剩余 ${events.length - limit} 条）`;
-      more.onclick = () => {
-        limit += 80;
-        render();
-      };
-      host.append(more);
-    }
-  }
-  render();
-}
-async function openSong(s, button) {
-  opened = s.id;
+function openSong(s, button) {
   source = button;
   button.querySelector(".cover").style.viewTransitionName = "jacket";
-  await transition(() => {
+  transition(() => {
     button.querySelector(".cover").style.viewTransitionName = "";
     $("detail").innerHTML =
-      `<div class="profile">${cover(s)}<div><small>${escape(s.genres.join(" / "))} · #${s.num}</small><h2>${escape(s.title)}</h2><div>${escape(s.artist || "曲师未知")}</div></div></div><h3>谱面与谱师</h3>${s.charts.map((c) => `<div class="detailmeta"><b class="${c.d}" style="color:var(--dc)">${names[c.d]}</b>　${escape(c.designers.join(" / ") || "档案未署名")}</div>`).join("")}<h3>历代快照</h3><div class="mini"><table><thead><tr><th>日服版本</th>${s.charts.map((c) => `<th>${c.d}</th>`).join("")}</tr></thead><tbody>${db.versions.map(([v], i) => `<tr><th>${escape(v)}</th>` + s.charts.map((c) => `<td${c.timeline[i]?.[4] ? ` title="${escape(c.timeline[i][4])}"` : ""}>${escape(value(c.timeline[i], c.d === "WE"))}</td>`).join("") + "</tr>").join("")}</tbody></table></div><div id="events">正在读取包内修订与配信记录…</div>`;
+      `<div class="profile">${cover(s)}<div><small>${escape(s.genres.join(" / "))} · #${s.num}</small><h2>${escape(s.title)}</h2><div>${escape(s.artist || "曲师未知")}</div></div></div><h3>谱面与谱师</h3>${s.charts.map((c) => `<div class="detailmeta"><b class="${c.d}" style="color:var(--dc)">${names[c.d]}</b>　${escape(c.designers.join(" / ") || "档案未署名")}</div>`).join("")}<h3>历代快照</h3><div class="mini"><table><thead><tr><th>日服版本</th>${s.charts.map((c) => `<th>${c.d}</th>`).join("")}</tr></thead><tbody>${db.versions.map(([v], i) => `<tr><th>${escape(v)}</th>` + s.charts.map((c) => `<td${c.timeline[i]?.[4] ? ` title="${escape(c.timeline[i][4])}"` : ""}>${escape(value(c.timeline[i], c.d === "WE"))}</td>`).join("") + "</tr>").join("")}</tbody></table></div>`;
     $("detail").querySelector(".cover").style.viewTransitionName = "jacket";
     modal.showModal();
     modal.scrollTop = 0;
   });
-  if (opened !== s.id) return;
-  try {
-    const file = db.history[s.group];
-    if (!cache.has(file))
-      cache.set(
-        file,
-        pack(file).catch((err) => {
-          cache.delete(file);
-          throw err;
-        }),
-      );
-    const data = await cache.get(file);
-    if (opened === s.id) showEvents(data[s.id] || []);
-  } catch {
-    if (opened === s.id)
-      $("events").textContent = "历史分片读取失败，请关闭后重试。";
-  }
 }
 async function init() {
   const m = await (

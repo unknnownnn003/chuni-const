@@ -51,6 +51,9 @@ def exercise(url):
                 viewport={"width": width, "height": height}, has_touch=width < 760
             )
             errors = []
+            history_requests = []
+            page.on("request", lambda request: history_requests.append(request.url)
+                    if "/data/history" in request.url else None)
             page.on("pageerror", lambda exc: errors.append(str(exc)))
             start = perf_counter()
             page.goto(url)
@@ -117,9 +120,12 @@ def exercise(url):
             )
             assert page.locator(".song").count() > 0
             page.locator(".song").first.click()
-            page.wait_for_selector("#events .event")
+            page.wait_for_selector("dialog[open] .mini")
             assert page.locator(".mini tbody tr").count() == 22
-            assert page.locator("#eventCount").count() == 0
+            assert page.locator("#detail > :last-child").evaluate(
+                "element => element.classList.contains('mini')"
+            )
+            assert page.locator("#events,#eventCount,.event").count() == 0
             page.keyboard.press("Escape")
             page.wait_for_function("!document.querySelector('dialog').open")
             page.wait_for_timeout(400)
@@ -155,6 +161,7 @@ def exercise(url):
             page.evaluate("window.scrollTo(0,0)")
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             assert not errors, errors
+            assert not history_requests, history_requests
             out = ROOT / "test-results"
             out.mkdir(exist_ok=True)
             page.screenshot(path=str(out / f"{width}.png"))

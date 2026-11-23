@@ -587,8 +587,7 @@ dialog::backdrop {
   border-radius: 9px;
 }
 .profile small,
-.detailmeta,
-.event small {
+.detailmeta {
   color: var(--muted);
 }
 #detail h3 {
@@ -609,18 +608,6 @@ dialog::backdrop {
   text-align: left;
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
-}
-#events:not(:empty) {
-  margin-top: 16px;
-}
-.event {
-  padding: 7px 0;
-  border-bottom: 1px solid var(--line);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-.event small {
-  display: block;
 }
 ::view-transition-old(jacket),
 ::view-transition-new(jacket) {
