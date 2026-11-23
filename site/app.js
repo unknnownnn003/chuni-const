@@ -97,10 +97,10 @@ function change(c, i) {
     return "";
   return b[1] > a[1] ? "up" : b[1] < a[1] ? "down" : "";
 }
-function cover(s, cls = "cover") {
+function cover(s) {
   return s.cover
-    ? `<img class="${cls}" src="data/jackets/${s.cover}.webp" alt="" decoding="async">`
-    : `<span class="${cls}" aria-label="缺少曲绘"></span>`;
+    ? `<img class="cover" src="data/jackets/${s.cover}.webp" alt="" decoding="async">`
+    : `<span class="cover" aria-label="缺少曲绘"></span>`;
 }
 function cellHtml(c, i, tutorial) {
   if (tutorial) return '<div class="cell nil">-</div>';
@@ -319,14 +319,6 @@ async function init() {
       .sort()
       .map((t) => [t, t]),
   ]);
-  $("wall").innerHTML = [
-    69, 202, 152, 72, 506, 201, 464, 226, 500, 635, 380, 205, 75, 561, 452, 183,
-    32, 150, 85, 160, 400,
-  ]
-    .map((id) => db.songs.find((s) => s.num === id && s.cover))
-    .filter(Boolean)
-    .map((s) => cover(s, "tile"))
-    .join("");
   $("diff").innerHTML = Object.entries({ "": "全部难度", ...names })
     .map(
       ([d, n]) =>

@@ -72,6 +72,13 @@ def exercise(url):
             viewport = page.locator("#viewport")
             viewport.scroll_into_view_if_needed()
             assert viewport.evaluate("v => getComputedStyle(v).scrollbarWidth") == "none"
+            assert page.locator(".hero,#wall").count() == 0
+            assert viewport.bounding_box()["height"] > height * 0.60
+            assert page.evaluate("""() => {
+                const root = document.scrollingElement;
+                return root.scrollHeight === root.clientHeight &&
+                  document.querySelector('.foot').getBoundingClientRect().bottom <= innerHeight;
+            }""")
             assert page.locator("#sort option:checked").inner_text() == "默认排序"
             assert page.locator("#stats,#guide,#compare,#change").count() == 0
             box = page.locator(".song").first.bounding_box()
@@ -139,7 +146,10 @@ def exercise(url):
             page.locator("#q").fill("")
             page.locator('#diff [data-d="WE"]').click()
             assert "★" in page.locator("#body").inner_text()
+            height_without_filters = viewport.bounding_box()["height"]
             page.locator("#filters").click()
+            assert 250 < viewport.bounding_box()["height"] < height_without_filters
+            assert page.evaluate("document.scrollingElement.scrollHeight === innerHeight")
             page.locator("#reset").click()
             page.locator("#ver").select_option("20")
             assert page.locator(".vhead").count() == 1
@@ -184,6 +194,14 @@ def exercise(url):
             out = ROOT / "test-results"
             out.mkdir(exist_ok=True)
             page.screenshot(path=str(out / f"{width}.png"))
+            page.set_viewport_size({"width": 844, "height": 390})
+            page.locator("#filters").click()
+            assert viewport.bounding_box()["height"] > 100
+            page.locator("#reset").scroll_into_view_if_needed()
+            assert page.locator("#tools").evaluate("form => form.scrollTop > 0")
+            assert page.evaluate("document.scrollingElement.scrollHeight === innerHeight")
+            zoom_button = page.locator("#zoomIn").bounding_box()
+            assert zoom_button["y"] + zoom_button["height"] <= 390
             page.close()
         browser.close()
 

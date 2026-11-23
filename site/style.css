@@ -20,8 +20,16 @@
 * {
   box-sizing: border-box;
 }
+html {
+  overflow: clip;
+}
 body {
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: clip;
 }
 button,
 input,
@@ -71,12 +79,20 @@ a {
   display: none !important;
 }
 header {
+  flex: none;
   border-bottom: 1px solid var(--line);
 }
 main,
 .bar {
   width: min(1580px, 94%);
   margin: auto;
+}
+main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-block: 0;
 }
 .bar {
   display: flex;
@@ -112,8 +128,7 @@ main,
 .region {
   margin-left: auto;
 }
-.region i,
-.eyebrow i {
+.region i {
   display: inline-block;
   width: 6px;
   height: 6px;
@@ -125,73 +140,29 @@ main,
   border-left: 1px solid var(--line);
   padding-left: 15px;
 }
-.hero {
-  margin: 23px 0 26px;
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background: #202929;
-  border: 1px solid #3d4943;
-  border-radius: 14px;
-  min-height: 194px;
+.library {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding-top: 20px;
 }
-.hero-copy {
-  padding: 23px 34px;
-  z-index: 1;
+.library > :not(#viewport) {
+  flex: none;
 }
-.eyebrow,
+#tools {
+  max-height: 45dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
 .foot,
 .badge,
 .year,
 kbd {
   font-family: "IBM Plex Mono", Consolas, monospace;
 }
-.eyebrow {
-  font-size: 10px;
-  letter-spacing: 0.15em;
-  color: var(--lime);
-  font-weight: bold;
-}
-.eyebrow i {
-  width: 17px;
-  height: 3px;
-  border-radius: 0;
-  margin-right: 5px;
-}
-h1 {
-  font-size: clamp(32px, 3.6vw, 58px);
-  line-height: 1.18;
-  letter-spacing: -0.055em;
-  margin: 9px 0 5px;
-}
-h1 span,
 .gridicon {
   color: var(--lime);
-}
-.artwork {
-  position: absolute;
-  inset: 0 0 0 39%;
-  z-index: -1;
-  overflow: hidden;
-  mask-image: linear-gradient(90deg, transparent, #000 46%);
-}
-#wall {
-  position: absolute;
-  inset: -100px -40px -100px 0;
-  display: grid;
-  grid-template-columns: repeat(7, minmax(76px, 1fr));
-  align-content: center;
-  gap: 7px;
-  transform: rotate(-12deg) scale(1.1);
-  opacity: 0.82;
-}
-#wall img {
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: 5px;
 }
 .sectionline,
 .resultline,
@@ -208,6 +179,7 @@ h1 span,
 .foot {
   justify-content: space-between;
 }
+#libTitle,
 h2 {
   font-size: 22px;
   margin: 0;
@@ -345,7 +317,8 @@ button.on {
 }
 #viewport {
   position: relative;
-  height: clamp(410px, 64vh, 820px);
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -539,7 +512,7 @@ button.on {
 .foot {
   font-size: 10px;
   flex-wrap: wrap;
-  padding: 8px 0 18px;
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
 }
 .zoom {
   display: flex;
@@ -637,16 +610,8 @@ dialog::backdrop {
   .bar {
     width: 94%;
   }
-  .hero-copy {
-    padding: 18px;
-  }
-  .hero {
-    min-height: 164px;
-    margin: 15px 0;
-  }
-  .artwork {
-    left: 45%;
-    opacity: 0.62;
+  .library {
+    padding-top: 14px;
   }
   .controls {
     flex-wrap: wrap;
@@ -712,6 +677,22 @@ dialog::backdrop {
   }
   .profile h2 {
     font-size: 18px;
+  }
+}
+@media (max-height: 500px) {
+  .bar {
+    height: 40px;
+  }
+  .library {
+    padding-top: 4px;
+  }
+  #tools {
+    max-height: 28dvh;
+  }
+  .sectionline,
+  .resultline,
+  .difficulties {
+    margin-block: 4px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
