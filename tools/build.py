@@ -50,20 +50,23 @@ def validate(database=None):
                 val = changes.get(i, val)
                 if val:
                     decoded[version[0]] = cells[val]
+            assert {cell[4] for cell in decoded.values() if cell[4]} <= set(c["designers"])
             charts[c["id"]] = decoded
     assert len(charts) == m["charts"]
     if database:
         conn = sqlite3.connect(Path(database).resolve().as_uri() + "?mode=ro", uri=True)
         expected = set()
+        designer = "coalesce(nullif(trim(ch.notes_designer), ''), c.creator)"
         for table, fields in [
             (
                 "chart_versions",
-                "selected_hundredths,null,constant_status,notes_designer,display_level",
+                f"selected_hundredths,null,constant_status,{designer},display_level",
             ),
-            ("worlds_end_versions", "stars,tag,null,notes_designer,null"),
+            ("worlds_end_versions", f"stars,tag,null,{designer},null"),
         ]:
             for key, version, *cell in conn.execute(
-                f"select chart_identity,version,state,{fields} from {table}"
+                f"""select chart_identity,version,state,{fields} from {table} ch
+                    left join c2s_sections c on c.sha256 = ch.c2s_sha256"""
             ):
                 assert charts[key][version] == cell, (key, version, cell)
                 expected.add((key, version))

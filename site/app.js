@@ -36,17 +36,18 @@ const flags = {
   removed: "×",
 };
 const table = $("viewport"),
+  matrix = $("matrix"),
   modal = $("modal"),
   cache = new Map();
 let db,
   groups = [],
   columns = [],
   difficulty = "",
-  comparing = false,
   opened = null,
   source = null,
   frame = 0,
-  range = "";
+  range = "",
+  zoom = 1;
 async function pack(name) {
   const res = await fetch("data/" + name);
   if (!res.ok) throw Error(`HTTP ${res.status}`);
@@ -74,33 +75,19 @@ function value(cell, we) {
   if (we) return `${cell[2] ?? "？"}★${cell[1] ?? "？"}`;
   return cell[1] == null ? "？" : (cell[1] / 100).toFixed(cell[1] % 10 ? 2 : 1);
 }
-function change(c, i, prev = i - 1, pair = false) {
-  const a = c.timeline[prev],
+function change(c, i) {
+  const a = c.timeline[i - 1],
     b = c.timeline[i];
-  if (pair) {
-    if (prev === i) return "";
-    if (a?.[0] === "present" && b?.[0] === "removed") return "removed";
-    if (b?.[0] === "present" && a?.[0] === "removed") return "restored";
-    if (b?.[0] === "present" && a?.[0] === "not_released") return "released";
-    if (c.d !== "WE" && a?.[0] === "present" && b?.[0] === "present" && a[1] != null && b[1] != null) {
-      return b[1] > a[1] ? "up" : b[1] < a[1] ? "down" : "";
-    }
-    return "";
-  }
   const marks = c.marks?.[i] || [];
   if (marks.includes("removed") && (!b || b[0] !== "present")) return "removed";
   if (marks.includes("restored") && (!b || b[0] === "present"))
     return "restored";
-  if (
-    marks.includes("released") &&
-    (!b || b[0] === "present") &&
-    (!comparing || !a || a[0] !== "present")
-  )
+  if (marks.includes("released") && (!b || b[0] === "present"))
     return "released";
   if (!b) return "";
   if (b[0] === "removed" && a?.[0] !== "removed") return "removed";
   if (b[0] !== "present") return "";
-  if (i === c.first && (!comparing || prev < i)) return "first";
+  if (i === c.first) return "first";
   if (c.d === "WE" || a?.[0] !== "present" || a[1] == null || b[1] == null)
     return "";
   return b[1] > a[1] ? "up" : b[1] < a[1] ? "down" : "";
@@ -110,9 +97,9 @@ function cover(s, cls = "cover") {
     ? `<img class="${cls}" src="data/jackets/${s.cover}.webp" alt="" decoding="async">`
     : `<span class="${cls}" aria-label="缺少曲绘"></span>`;
 }
-function cellHtml(c, i, prev, target = false) {
+function cellHtml(c, i) {
   const cell = c.timeline[i],
-    flag = comparing && !target ? "" : change(c, i, prev, target),
+    flag = change(c, i),
     label = value(cell, c.d === "WE");
   const hint = cell
     ? [
@@ -128,18 +115,10 @@ function cellHtml(c, i, prev, target = false) {
 }
 function update() {
   if (!db) return;
-  const vi = $("ver").value,
-    from = +$("from").value,
-    to = +$("to").value;
-  columns = comparing
-    ? [from, to]
-    : vi === ""
-      ? db.versions.map((_, i) => i)
-      : [+vi];
-  const scan = comparing ? [to] : columns,
-    lo = $("min").value,
+  const vi = $("ver").value;
+  columns = vi === "" ? db.versions.map((_, i) => i) : [+vi];
+  const lo = $("min").value,
     hi = $("max").value,
-    kind = $("change").value,
     query = norm($("q").value.trim());
   const category = $("genre").value,
     sort = $("sort").value;
@@ -153,17 +132,9 @@ function update() {
         (!match && !c.search.includes(query))
       )
         return false;
-      return scan.some((i) => {
+      return columns.some((i) => {
         const v = c.timeline[i];
-        if (!comparing && vi !== "" && !v && !c.marks?.[i]) return false;
-        if (
-          comparing &&
-          !v &&
-          !c.timeline[from] &&
-          !c.marks?.[i] &&
-          !c.marks?.[from]
-        )
-          return false;
+        if (vi !== "" && !v && !c.marks?.[i]) return false;
         if (
           (lo !== "" || hi !== "") &&
           (c.d === "WE" ||
@@ -173,19 +144,12 @@ function update() {
             (hi !== "" && v[1] > Math.round(Number(hi) * 100)))
         )
           return false;
-        return !kind || change(c, i, comparing ? from : i - 1, comparing) === kind;
+        return true;
       });
     });
     if (
       !cs.length &&
-      (s.charts.length ||
-        !match ||
-        difficulty ||
-        kind ||
-        lo ||
-        hi ||
-        vi !== "" ||
-        comparing)
+      (s.charts.length || !match || difficulty || lo || hi || vi !== "")
     )
       continue;
     const level =
@@ -195,7 +159,7 @@ function update() {
             ...cs.flatMap((c) =>
               c.d === "WE"
                 ? []
-                : scan.map((i) =>
+                : columns.map((i) =>
                     c.timeline[i]?.[0] === "present"
                       ? (c.timeline[i][1] ?? -1)
                       : -1,
@@ -237,14 +201,14 @@ function draw() {
   if (!db) return;
   let l = 0,
     r = groups.length;
-  const y = table.scrollTop - 180;
+  const y = table.scrollTop / zoom - 180;
   while (l < r) {
     const m = (l + r) >> 1;
     if (groups[m].end < y) l = m + 1;
     else r = m;
   }
   let end = l;
-  while (end < groups.length && groups[end].y < y + table.clientHeight + 400)
+  while (end < groups.length && groups[end].y < y + table.clientHeight / zoom + 400)
     end++;
   const key = `${l}/${end}`;
   if (key === range) return;
@@ -253,13 +217,12 @@ function draw() {
     .slice(l, end)
     .map(
       ({ s, cs, y }) =>
-        `<div class="block" style="top:${y}px"><button class="song ${cs.length < 2 ? "single" : ""}" style="grid-row:span ${Math.max(1, cs.length)}" data-id="${escape(s.id)}" title="${escape(s.title)}">${cover(s)}<span><strong>${escape(s.title)}</strong><small>${escape(s.artist || "曲师未知")}</small></span></button>${cs.map((c) => `<div class="badge ${c.d}"><span>${c.d}</span></div>` + columns.map((i, j) => cellHtml(c, i, comparing && j === 1 ? columns[0] : i - 1, comparing && j === 1)).join("")).join("") || '<div class="badge">无谱面</div>'}</div>`,
+        `<div class="block" style="top:${y}px"><button class="song ${cs.length < 2 ? "single" : ""}" style="grid-row:span ${Math.max(1, cs.length)}" data-id="${escape(s.id)}" title="${escape(s.title)}">${cover(s)}<span><strong>${escape(s.title)}</strong><small>${escape(s.artist || "曲师未知")}</small></span></button>${cs.map((c) => `<div class="badge ${c.d}"><span>${c.d}</span></div>` + columns.map((i) => cellHtml(c, i)).join("")).join("") || '<div class="badge">无谱面</div>'}</div>`,
     )
     .join("");
   $("body").innerHTML =
     html || '<p class="empty">没有符合条件的曲目。请调整筛选或搜索词。</p>';
 }
-const guide = `<article class="guide"><div class="eyebrow">READING THE ARCHIVE</div><h2>矩阵阅读指南</h2><p>每列是一个日服版本的快照，每行是一张独立谱面。点击曲名或曲绘可查看该版本内的修订记录。</p><p><b>新增</b> 和首见以浅绿色数值显示。新增来自历史库的确切配信日期，↺ 表示复活，× 表示明确删除。<b>首见</b> 表示该谱面首次被版本快照确认为已收录。实际配信日期可在详情的历史记录中查阅。</p><p>▲ 和 ▼ 表示两个已知定数之间的变化。× 表示库中明确记录删除。— 表示缺少快照，？表示状态或数值尚不确定。</p><p>WORLD’S END 显示属性和星数。定数范围与升降筛选仅适用于普通谱面。未指定版本时，任一版本满足筛选即可。</p><p>曲目按历史库中的独立身份计数。相同曲名可能对应不同的复刻、特殊谱面或包内记录。</p></article>`;
 function transition(fn) {
   if (
     document.startViewTransition &&
@@ -330,7 +293,7 @@ async function openSong(s, button) {
   await transition(() => {
     button.querySelector(".cover").style.viewTransitionName = "";
     $("detail").innerHTML =
-      `<div class="profile">${cover(s)}<div><small>${escape(s.genres.join(" / "))} · #${s.num}</small><h2>${escape(s.title)}</h2><div>${escape(s.artist || "曲师未知")}</div></div></div><h3>谱面与谱师</h3>${s.charts.map((c) => `<div class="detailmeta"><b class="${c.d}" style="color:var(--dc)">${names[c.d]}</b>　${escape(c.designers.join(" / ") || "谱师未知")}</div>`).join("")}<h3>历代快照</h3><div class="mini"><table><thead><tr><th>日服版本</th>${s.charts.map((c) => `<th>${c.d}</th>`).join("")}</tr></thead><tbody>${db.versions.map(([v], i) => `<tr><th>${escape(v)}</th>` + s.charts.map((c) => `<td title="${escape(c.timeline[i]?.[4] || "谱师未知")}">${escape(value(c.timeline[i], c.d === "WE"))}</td>`).join("") + "</tr>").join("")}</tbody></table></div><h3>历史事件 <small id="eventCount"></small></h3><div id="events">正在读取包内修订与配信记录…</div>`;
+      `<div class="profile">${cover(s)}<div><small>${escape(s.genres.join(" / "))} · #${s.num}</small><h2>${escape(s.title)}</h2><div>${escape(s.artist || "曲师未知")}</div></div></div><h3>谱面与谱师</h3>${s.charts.map((c) => `<div class="detailmeta"><b class="${c.d}" style="color:var(--dc)">${names[c.d]}</b>　${escape(c.designers.join(" / ") || "档案未署名")}</div>`).join("")}<h3>历代快照</h3><div class="mini"><table><thead><tr><th>日服版本</th>${s.charts.map((c) => `<th>${c.d}</th>`).join("")}</tr></thead><tbody>${db.versions.map(([v], i) => `<tr><th>${escape(v)}</th>` + s.charts.map((c) => `<td${c.timeline[i]?.[4] ? ` title="${escape(c.timeline[i][4])}"` : ""}>${escape(value(c.timeline[i], c.d === "WE"))}</td>`).join("") + "</tr>").join("")}</tbody></table></div><div id="events">正在读取包内修订与配信记录…</div>`;
     $("detail").querySelector(".cover").style.viewTransitionName = "jacket";
     modal.showModal();
     modal.scrollTop = 0;
@@ -347,11 +310,7 @@ async function openSong(s, button) {
         }),
       );
     const data = await cache.get(file);
-    if (opened === s.id) {
-      const events = data[s.id] || [];
-      $("eventCount").textContent = `(${events.length})`;
-      showEvents(events);
-    }
+    if (opened === s.id) showEvents(data[s.id] || []);
   } catch {
     if (opened === s.id)
       $("events").textContent = "历史分片读取失败，请关闭后重试。";
@@ -380,23 +339,12 @@ async function init() {
   }
   const vs = db.versions.map(([v], i) => [i, v]);
   options("ver", [["", "全部版本"], ...vs]);
-  options("from", vs);
-  options("to", vs);
-  $("from").value = vs.length - 2;
-  $("to").value = vs.length - 1;
   options("genre", [
     ["", "全部分类"],
     ...[...new Set(db.songs.flatMap((s) => s.genres))]
       .sort()
       .map((t) => [t, t]),
   ]);
-  $("stats").innerHTML = [
-    [m.songs, "首曲目"],
-    [m.charts, "张谱面"],
-    [m.versions, "个版本"],
-  ]
-    .map(([n, label]) => `<span><b>${format(n)}</b> ${label}</span>`)
-    .join("");
   $("wall").innerHTML = [
     69, 202, 152, 72, 506, 201, 464, 226, 500, 635, 380, 205, 75, 561, 452, 183,
     32, 150, 85, 160, 400,
@@ -427,16 +375,8 @@ $("filters").onclick = () => {
   $("filters").classList.toggle("on", show);
   $("filters").setAttribute("aria-expanded", String(show));
 };
-$("compare").onclick = () => {
-  comparing = !comparing;
-  $("pair").hidden = !comparing;
-  $("compare").classList.toggle("on", comparing);
-  $("compare").setAttribute("aria-pressed", String(comparing));
-  $("ver").disabled = comparing;
-  update();
-};
 $("reset").onclick = () => {
-  for (const id of ["min", "max", "genre", "ver", "q", "change"])
+  for (const id of ["min", "max", "genre", "ver", "q"])
     $(id).value = "";
   $("diff").firstElementChild.click();
   $("diff").scrollLeft = 0;
@@ -447,6 +387,96 @@ table.onscroll = () => {
   frame = requestAnimationFrame(draw);
 };
 new ResizeObserver(draw).observe(table);
+
+const MIN_ZOOM = 0.65, MAX_ZOOM = 1.5;
+function zoomAt(next, x, y, moveX = 0, moveY = 0) {
+  next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
+  const ratio = next / zoom;
+  const left = (table.scrollLeft + x) * ratio - x - moveX;
+  const top = (table.scrollTop + y) * ratio - y - moveY;
+  if (next !== zoom) {
+    zoom = next;
+    matrix.style.setProperty("--zoom", zoom);
+    $("zoomReset").textContent = `${Math.round(zoom * 100)}%`;
+    $("zoomOut").disabled = zoom === MIN_ZOOM;
+    $("zoomIn").disabled = zoom === MAX_ZOOM;
+  }
+  table.scrollTo(left, top);
+  draw(); // Zoom can reveal more rows even without a scroll event.
+}
+function zoomFromCenter(next) {
+  zoomAt(next, table.clientWidth / 2, table.clientHeight / 2);
+}
+$("zoomOut").onclick = () => zoomFromCenter(zoom / 1.15);
+$("zoomIn").onclick = () => zoomFromCenter(zoom * 1.15);
+$("zoomReset").onclick = () => zoomFromCenter(1);
+table.addEventListener("wheel", (e) => {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  const rect = table.getBoundingClientRect();
+  const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? table.clientHeight : 1;
+  zoomAt(zoom * Math.exp(-e.deltaY * unit * 0.002), e.clientX - rect.left, e.clientY - rect.top);
+}, { passive: false });
+
+const pointers = new Map();
+let dragging = false;
+let suppressClick = false;
+function startDrag() {
+  dragging = true;
+  suppressClick = true;
+  table.classList.add("dragging");
+  for (const id of pointers.keys()) table.setPointerCapture(id);
+}
+table.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0 || pointers.size >= 2) return;
+  if (!pointers.size) suppressClick = false;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 2) startDrag();
+});
+table.addEventListener("pointermove", (e) => {
+  const previous = pointers.get(e.pointerId);
+  if (!previous) return;
+  const x = e.clientX, y = e.clientY;
+  const dx = x - previous.x, dy = y - previous.y;
+  if (!dragging) {
+    if (Math.hypot(dx, dy) < 5) return;
+    startDrag();
+  }
+  pointers.set(e.pointerId, { x, y });
+  if (pointers.size === 1) {
+    table.scrollBy(-dx, -dy);
+    return;
+  }
+  const other = [...pointers.entries()].find(([id]) => id !== e.pointerId)[1];
+  const oldDistance = Math.hypot(previous.x - other.x, previous.y - other.y);
+  const distance = Math.hypot(x - other.x, y - other.y);
+  const rect = table.getBoundingClientRect();
+  zoomAt(
+    oldDistance > 1 ? zoom * distance / oldDistance : zoom,
+    (previous.x + other.x) / 2 - rect.left,
+    (previous.y + other.y) / 2 - rect.top,
+    dx / 2, dy / 2,
+  );
+});
+function endPointer(e) {
+  if (!pointers.delete(e.pointerId) || pointers.size) return;
+  dragging = false;
+  table.classList.remove("dragging");
+}
+window.addEventListener("pointerup", endPointer);
+window.addEventListener("pointercancel", endPointer);
+table.addEventListener("lostpointercapture", (e) => {
+  if (e.target === table) endPointer(e);
+});
+table.addEventListener("pointerleave", (e) => {
+  if (!dragging) endPointer(e);
+});
+table.addEventListener("dragstart", (e) => e.preventDefault());
+table.addEventListener("click", (e) => {
+  if (!suppressClick || e.detail === 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+}, { capture: true });
 $("body").onclick = (e) => {
   const b = e.target.closest(".song");
   if (b)
@@ -454,11 +484,6 @@ $("body").onclick = (e) => {
       db.songs.find((s) => s.id === b.dataset.id),
       b,
     );
-};
-$("guide").onclick = () => {
-  $("detail").innerHTML = guide;
-  modal.showModal();
-  modal.scrollTop = 0;
 };
 modal.querySelector(".close").onclick = close;
 modal.oncancel = (e) => {

@@ -102,26 +102,40 @@ def export(db, roots, out):
             chart(r["identity"], r["parent"], r["difficulty"])
     dictionary, codes = [None], {}
     for table in ["chart_versions", "worlds_end_versions"]:
-        for r in conn.execute(f"select * from {table} order by version,chart_identity"):
+        for r in conn.execute(
+            f"""select ch.*, c.creator from {table} ch
+                 left join c2s_sections c on c.sha256 = ch.c2s_sha256
+                 order by ch.version, ch.chart_identity"""
+        ):
             we = table == "worlds_end_versions"
             c = chart(
                 r["chart_identity"], r["identity"], "WE" if we else r["difficulty"]
             )
             val = r["stars"] if we else r["selected_hundredths"]
+            # Older Music.xml records omit credits that are present in the C2S header.
+            designer = (r["notes_designer"] or "").strip() or r["creator"]
             cell = (
                 r["state"],
                 val,
                 r["tag"] if we else None,
                 None if we else r["constant_status"],
-                r["notes_designer"],
+                designer,
                 None if we else r["display_level"],
             )
             if cell not in codes:
                 codes[cell] = len(dictionary)
                 dictionary.append(cell)
             c["cells"][order[r["version"]]] = codes[cell]
-            if r["notes_designer"]:
-                c["designers"].add(r["notes_designer"])
+            if designer:
+                c["designers"].add(designer)
+    # Package-only revisions can carry credits absent from every version snapshot.
+    for key, designer in conn.execute(
+        """select distinct r.identity, trim(json_extract(r.payload, '$.notes_designer'))
+           from history_revisions r join history_entities e using (identity)
+           where e.kind <> 'song' and json_type(r.payload, '$.notes_designer') = 'text'"""
+    ):
+        if designer:
+            charts[key]["designers"].add(designer)
     for r in conn.execute(
         """select e.*,b.version from history_events e left join history_batches b using(batch) order by event"""
     ):
@@ -150,7 +164,7 @@ def export(db, roots, out):
         ]
         if r["field"] == "notes_designer" and key in charts:
             charts[key]["designers"].update(
-                v for v in [before, after] if isinstance(v, str) and v
+                v.strip() for v in (before, after) if isinstance(v, str) and v.strip()
             )
         details[parent].append(
             [

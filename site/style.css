@@ -105,7 +105,6 @@ main,
 }
 .region,
 .repo,
-.textbtn,
 .foot {
   font-size: 12px;
   color: var(--muted);
@@ -171,24 +170,6 @@ h1 span,
 .gridicon {
   color: var(--lime);
 }
-.hero p {
-  color: #c0c9c2;
-  margin: 0;
-  font-size: 13px;
-}
-#stats {
-  display: flex;
-  gap: 18px;
-  font-size: 12px;
-  color: #c5ceca;
-  margin-top: 15px;
-}
-#stats b {
-  font:
-    700 16px/1 Consolas,
-    monospace;
-  color: #f3f6ef;
-}
 .artwork {
   position: absolute;
   inset: 0 0 0 39%;
@@ -234,13 +215,6 @@ h2 {
 }
 .gridicon {
   font-size: 24px;
-}
-.textbtn,
-.close {
-  background: transparent;
-}
-.textbtn {
-  border: 0;
 }
 .sectionline {
   margin-bottom: 14px;
@@ -303,9 +277,6 @@ kbd {
 .extra input {
   width: 90px;
   padding: 8px;
-}
-.extra small {
-  color: var(--muted);
 }
 .difficulties {
   gap: 5px;
@@ -378,8 +349,24 @@ button.on {
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
-  scrollbar-color: #54635e #192020;
+  scrollbar-width: none;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
   overscroll-behavior: contain;
+}
+#viewport::-webkit-scrollbar {
+  display: none;
+}
+#viewport.dragging,
+#viewport.dragging .song {
+  cursor: grabbing;
+}
+#matrix {
+  --zoom: 1;
+  zoom: var(--zoom);
+  width: calc(100% / var(--zoom));
+  min-width: calc(var(--pin) + var(--diff) + var(--n, 22) * var(--col));
 }
 #head,
 .block {
@@ -540,8 +527,27 @@ button.on {
 }
 .foot {
   font-size: 10px;
-  letter-spacing: 0.07em;
-  padding: 10px 0 18px;
+  flex-wrap: wrap;
+  padding: 8px 0 18px;
+}
+.zoom {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.zoom button {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+.zoom button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+#zoomReset {
+  min-width: 61px;
+  font-variant-numeric: tabular-nums;
 }
 dialog {
   width: min(790px, 94vw);
@@ -604,6 +610,9 @@ dialog::backdrop {
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
+#events:not(:empty) {
+  margin-top: 16px;
+}
 .event {
   padding: 7px 0;
   border-bottom: 1px solid var(--line);
@@ -612,12 +621,6 @@ dialog::backdrop {
 }
 .event small {
   display: block;
-}
-.guide p {
-  color: #c6cec9;
-}
-.guide b {
-  color: var(--lime);
 }
 ::view-transition-old(jacket),
 ::view-transition-new(jacket) {
@@ -642,10 +645,6 @@ dialog::backdrop {
   .hero {
     min-height: 164px;
     margin: 15px 0;
-  }
-  .hero p {
-    max-width: 240px;
-    font-size: 11px;
   }
   .artwork {
     left: 45%;
@@ -706,9 +705,6 @@ dialog::backdrop {
   }
   .resultline {
     gap: 4px;
-  }
-  .foot {
-    letter-spacing: 0;
   }
   .sectionline {
     margin-bottom: 9px;

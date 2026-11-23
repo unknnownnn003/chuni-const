@@ -16,11 +16,40 @@ class Quiet(SimpleHTTPRequestHandler):
         pass
 
 
+def check_touch(page, viewport):
+    session = page.context.new_cdp_session(page)
+    box = viewport.bounding_box()
+    x, y = round(box["x"] + 220), round(box["y"] + 130)
+
+    def touch(kind, *points):
+        session.send("Input.dispatchTouchEvent", {
+            "type": kind,
+            "touchPoints": [
+                {"x": px, "y": py, "id": i} for i, (px, py) in enumerate(points)
+            ],
+        })
+
+    viewport.evaluate("v => v.scrollTo(0, 0)")
+    touch("touchStart", (x, y))
+    touch("touchMove", (x - 55, y - 65))
+    touch("touchEnd")
+    assert viewport.evaluate("v => v.scrollLeft >= 50 && v.scrollTop >= 60")
+    touch("touchStart", (x - 40, y), (x + 40, y))
+    touch("touchMove", (x - 60, y), (x + 60, y))
+    touch("touchEnd")
+    assert page.locator("#zoomReset").inner_text() == "150%"
+    page.locator("#zoomReset").click()
+    assert page.locator("#zoomReset").inner_text() == "100%"
+    session.detach()
+
+
 def exercise(url):
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         for width, height in [(1440, 900), (390, 844)]:
-            page = browser.new_page(viewport={"width": width, "height": height})
+            page = browser.new_page(
+                viewport={"width": width, "height": height}, has_touch=width < 760
+            )
             errors = []
             page.on("pageerror", lambda exc: errors.append(str(exc)))
             start = perf_counter()
@@ -38,6 +67,37 @@ def exercise(url):
             assert initial_values.count() and initial_values.locator("i").count() == 0
             assert all(not text.startswith(("+", "＋", "◇")) for text in initial_values.all_text_contents())
             viewport = page.locator("#viewport")
+            viewport.scroll_into_view_if_needed()
+            assert viewport.evaluate("v => getComputedStyle(v).scrollbarWidth") == "none"
+            assert page.locator("#sort option:checked").inner_text() == "默认排序"
+            assert page.locator("#stats,#guide,#compare,#change").count() == 0
+            box = page.locator(".song").first.bounding_box()
+            x, y = box["x"] + 90, box["y"] + 55
+            page.mouse.move(x, y)
+            page.mouse.down()
+            page.mouse.move(x - 65, y - 50, steps=5)
+            page.mouse.up()
+            assert viewport.evaluate("v => v.scrollLeft >= 60 && v.scrollTop >= 45")
+            assert not page.locator("dialog").is_visible()
+            if width < 760:
+                check_touch(page, viewport)
+            else:
+                page.keyboard.down("Control")
+                page.mouse.wheel(0, -120)
+                page.keyboard.up("Control")
+                page.wait_for_function("document.querySelector('#zoomReset').textContent !== '100%'")
+                page.locator("#zoomReset").click()
+            page.locator("#zoomIn").click()
+            assert page.locator("#zoomReset").inner_text() == "115%"
+            viewport.evaluate("v => v.scrollTo(650, 70000)")
+            page.wait_for_function("document.querySelector('.block').offsetTop > 50000")
+            box = viewport.bounding_box()
+            assert abs(page.locator(".song").first.bounding_box()["x"] - box["x"]) < 2
+            assert abs(page.locator("#head").bounding_box()["y"] - box["y"]) < 2
+            assert page.locator(".cell").count() < 1400
+            page.locator("#zoomReset").click()
+            viewport.evaluate("v => v.scrollTo(0, 0)")
+            page.wait_for_function("document.querySelector('.block').offsetTop === 0")
             initial = page.locator(".song").first.bounding_box()["x"]
             viewport.evaluate("(v)=>v.scrollLeft=650")
             page.wait_for_timeout(100)
@@ -59,6 +119,7 @@ def exercise(url):
             page.locator(".song").first.click()
             page.wait_for_selector("#events .event")
             assert page.locator(".mini tbody tr").count() == 22
+            assert page.locator("#eventCount").count() == 0
             page.keyboard.press("Escape")
             page.wait_for_function("!document.querySelector('dialog').open")
             page.wait_for_timeout(400)
@@ -81,20 +142,16 @@ def exercise(url):
             page.locator("#min").fill("14")
             page.locator("#max").fill("15")
             assert page.locator(".cell").count() > 0
-            page.locator("#compare").click()
-            assert page.locator(".vhead").count() == 2
-            page.locator("#from").select_option("4")
-            page.locator("#to").select_option("4")
-            page.locator("#change").select_option("restored")
-            assert page.locator(".empty").is_visible()
-            page.locator("#change").select_option("up")
             page.locator("#reset").click()
-            page.locator("#compare").click()
             page.locator("#filters").click()
-            page.locator("#guide").click()
-            assert page.locator(".guide").is_visible()
-            page.locator(".close").click()
-            page.wait_for_timeout(500)
+            page.locator("#q").fill("天体観測")
+            page.locator(".song").first.click()
+            page.wait_for_function("document.querySelector('dialog[open] h2')?.textContent === '天体観測'")
+            assert "Techno Kitchen" in page.locator(".detailmeta").first.inner_text()
+            assert page.locator(".mini tbody tr").first.locator("td").first.get_attribute("title") == "Techno Kitchen"
+            page.keyboard.press("Escape")
+            page.wait_for_function("!document.querySelector('dialog').open")
+            page.locator("#q").fill("")
             page.evaluate("window.scrollTo(0,0)")
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             assert not errors, errors
