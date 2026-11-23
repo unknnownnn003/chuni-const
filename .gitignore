@@ -1,0 +1,9 @@
+/dist/
+/test-logo.png
+/test-results/
+__pycache__/
+.ruff_cache/
+*.sqlite*
+*.dds
+*.c2s
+*.vhd

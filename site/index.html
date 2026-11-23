@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#13191a" />
+    <title>CHUNITHM · 历代定数档案</title>
+    <link rel="icon" href="assets/mark.svg" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="bar">
+        <b class="brand"
+          ><img src="assets/mark.svg" alt="" />CHUNITHM <em>ARCHIVE</em></b
+        ><span class="region"><i></i> 日服曲库</span
+        ><a
+          class="repo"
+          href="https://github.com/unknnownnn003/chuni-const"
+          aria-label="GitHub 源码"
+          >GitHub ↗</a
+        >
+      </div>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><i></i> CHART CONSTANT ARCHIVE</div>
+          <h1>历代定数档案<span>.</span></h1>
+          <p>从初代 CHUNITHM 到 MATE，逐版查阅日服谱面定数。</p>
+          <div id="stats" aria-live="polite">正在读取历史档案…</div>
+        </div>
+        <div class="artwork" aria-hidden="true"><div id="wall"></div></div>
+      </section>
+      <section class="library" aria-labelledby="libTitle">
+        <div class="sectionline">
+          <h2 id="libTitle"><span class="gridicon">▦</span> 谱面矩阵</h2>
+          <button id="guide" class="textbtn">ⓘ 阅读指南</button>
+        </div>
+        <form id="tools" onsubmit="return false">
+          <div class="controls">
+            <label class="search"
+              ><span>⚲</span
+              ><input
+                id="q"
+                type="search"
+                placeholder="搜索曲名、曲师或谱师"
+                aria-label="搜索曲名、曲师或谱师"
+              /><kbd>/</kbd></label
+            ><button type="button" id="filters" aria-expanded="false">
+              ☷　筛选</button
+            ><button type="button" id="compare" aria-pressed="false">
+              ⇄　版本比较</button
+            ><label class="sort"
+              >排序
+              <select id="sort">
+                <option value="id">曲目编号</option>
+                <option value="title">曲名 A–Z</option>
+                <option value="level">定数从高到低</option>
+              </select></label
+            >
+          </div>
+          <div id="extra" class="extra" hidden>
+            <label>日服版本<select id="ver"></select></label
+            ><label>曲目分类<select id="genre"></select></label
+            ><label
+              >定数下限<input
+                type="number"
+                id="min"
+                step="0.01"
+                min="0"
+                placeholder="不限" /></label
+            ><label
+              >定数上限<input
+                type="number"
+                id="max"
+                step="0.01"
+                min="0"
+                placeholder="不限" /></label
+            ><label
+              >谱面变化<select id="change">
+                <option value="">全部变化</option>
+                <option value="up">定数上升</option>
+                <option value="down">定数下降</option>
+                <option value="released">新增配信</option>
+                <option value="restored">复活</option>
+                <option value="first">首次观测</option>
+                <option value="removed">已删除</option>
+              </select></label
+            ><button type="button" id="reset">重置筛选</button>
+          </div>
+          <div id="pair" class="extra" hidden>
+            <label>对照版本<select id="from"></select></label><b>→</b
+            ><label>目标版本<select id="to"></select></label
+            ><small>比较所选两版，筛选范围应用于目标版。</small>
+          </div>
+          <div class="difficulties" id="diff" aria-label="谱面难度"></div>
+        </form>
+        <div class="resultline">
+          <span id="count" role="status">载入中…</span
+          ><span class="legend"
+            ><b class="up">▲</b> 上升　<b class="down">▼</b> 下降　<b
+              class="first"
+              >●</b
+            >
+            新增　<b class="removed">×</b> 删除</span
+          >
+        </div>
+        <div id="viewport" tabindex="0" aria-label="可横向及纵向滚动的谱面矩阵">
+          <div id="head"></div>
+          <div id="body"></div>
+        </div>
+        <div class="foot">
+          <span>CHUNITHM / JP HDD ARCHIVE</span
+          ><span>横向滚动查看历代版本　↔</span>
+        </div>
+      </section>
+    </main>
+    <dialog id="modal">
+      <button class="close" aria-label="关闭">×</button>
+      <div id="detail"></div>
+    </dialog>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
