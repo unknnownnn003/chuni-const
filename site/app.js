@@ -122,7 +122,7 @@ function cellHtml(c, i, tutorial) {
 function update() {
   if (!db) return;
   const vi = $("ver").value;
-  columns = vi === "" ? db.versions.map((_, i) => i) : [+vi];
+  const selectedVersions = vi === "" ? db.versions.map((_, i) => i) : [+vi];
   const lo = $("min").value,
     hi = $("max").value,
     query = norm($("q").value.trim());
@@ -139,7 +139,7 @@ function update() {
         (!match && !c.search.includes(query))
       )
         return false;
-      return columns.some((i) => {
+      return selectedVersions.some((i) => {
         const v = c.timeline[i];
         if (vi !== "" && !v && !c.marks?.[i]) return false;
         if (
@@ -167,7 +167,7 @@ function update() {
             ...cs.flatMap((c) =>
               c.d === "WE"
                 ? []
-                : columns.map((i) =>
+                : selectedVersions.map((i) =>
                     c.timeline[i]?.[0] === "present"
                       ? (c.timeline[i][1] ?? -1)
                       : -1,
@@ -176,6 +176,13 @@ function update() {
           )
         : -1;
     groups.push({ s, cs, level, tutorial });
+  }
+  columns = selectedVersions;
+  if ($("hideEmptyVersions").checked) {
+    // Check filtered data rather than just the rows rendered in the viewport.
+    columns = selectedVersions.filter((i) => groups.some(({ cs, tutorial }) =>
+      !tutorial && cs.some((c) => c.timeline[i] || flags[change(c, i)])
+    ));
   }
   if (sort === "title")
     groups.sort((a, b) => a.s.title.localeCompare(b.s.title, "ja"));
@@ -190,6 +197,9 @@ function update() {
   }
   $("body").style.height = y + "px";
   table.style.setProperty("--n", columns.length);
+  table.style.setProperty("--matrix-columns", columns.length
+    ? `var(--pin) var(--diff) repeat(${columns.length}, var(--col))`
+    : "var(--pin) var(--diff)");
   $("head").innerHTML =
     '<div class="namehead">曲目 / ARTIST</div><div class="diffhead">难度</div>' +
     columns
@@ -199,7 +209,8 @@ function update() {
       )
       .join("");
   $("count").textContent =
-    `${format(groups.length)} 首曲目 · ${format(n)} 张谱面`;
+    `${format(groups.length)} 首曲目 · ${format(n)} 张谱面` +
+    (groups.length && !columns.length ? " · 无可显示的版本列" : "");
   table.scrollTop = 0;
   table.scrollLeft = 0;
   range = "";
@@ -344,6 +355,7 @@ $("filters").onclick = () => {
 $("reset").onclick = () => {
   for (const id of ["min", "max", "genre", "ver", "q"])
     $(id).value = "";
+  $("hideEmptyVersions").checked = false;
   $("diff").firstElementChild.click();
   $("diff").scrollLeft = 0;
 };

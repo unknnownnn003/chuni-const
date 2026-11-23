@@ -164,6 +164,24 @@ def exercise(url):
             page.locator("#max").fill("15")
             assert page.locator(".cell").count() > 0
             page.locator("#reset").click()
+            ignore = page.get_by_role("switch", name="忽略未实装版本")
+            assert not ignore.is_checked()
+            page.locator("#q").fill("Dual Fractal")
+            headers = page.locator(".vhead strong")
+            assert headers.count() == 22
+            ignore.check()
+            assert 0 < headers.count() < 22
+            assert headers.first.inner_text() == "STAR PLUS"
+            assert "—" not in page.locator(".cell").all_text_contents()
+            page.locator("#q").fill("Sinfonie Nr. 9 d-moll op. 125")
+            assert headers.count() == 0
+            assert page.locator(".song").count() == 4
+            assert page.locator(".diffhead").is_visible()
+            ignore.uncheck()
+            assert headers.count() == 22
+            ignore.check()
+            page.locator("#reset").click()
+            assert not ignore.is_checked() and headers.count() == 22
             page.locator("#filters").click()
             page.locator("#q").fill("天体観測")
             page.locator(".song").first.click()
