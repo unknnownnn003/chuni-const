@@ -97,6 +97,11 @@ def exercise(url):
             box = viewport.bounding_box()
             assert abs(page.locator(".song").first.bounding_box()["x"] - box["x"]) < 2
             assert abs(page.locator("#head").bounding_box()["y"] - box["y"]) < 2
+            pin = page.locator(".song").first.bounding_box()
+            for selector in (".diffhead", ".block > .badge"):
+                frozen = page.locator(selector).first.bounding_box()
+                assert abs(frozen["x"] - (pin["x"] + pin["width"])) < 2
+                assert frozen["x"] + frozen["width"] < box["x"] + box["width"]
             assert page.locator(".cell").count() < 1400
             page.locator("#zoomReset").click()
             viewport.evaluate("v => v.scrollTo(0, 0)")
@@ -157,6 +162,20 @@ def exercise(url):
             assert page.locator(".mini tbody tr").first.locator("td").first.get_attribute("title") == "Techno Kitchen"
             page.keyboard.press("Escape")
             page.wait_for_function("!document.querySelector('dialog').open")
+            page.locator("#q").fill("")
+            page.emulate_media(reduced_motion="reduce")
+            page.locator("#q").fill("Sinfonie Nr. 9 d-moll op. 125")
+            tutorials = page.locator(".block").filter(has=page.locator(".song"))
+            assert tutorials.count() == 4
+            for block in tutorials.all():
+                values = block.locator(".cell").all_text_contents()
+                assert values and set(values) == {"-"}
+                block.locator(".song").click()
+                page.wait_for_selector("dialog[open] .mini")
+                values = page.locator("dialog .mini td").all_text_contents()
+                assert values and set(values) == {"-"}
+                page.keyboard.press("Escape")
+                page.wait_for_function("!document.querySelector('dialog').open")
             page.locator("#q").fill("")
             page.evaluate("window.scrollTo(0,0)")
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")

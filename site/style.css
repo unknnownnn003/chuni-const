@@ -422,7 +422,14 @@ button.on {
   font-size: 9px;
   color: #aeb9b4;
 }
+.diffhead,
+.block > .badge {
+  position: sticky;
+  left: var(--pin);
+  z-index: 2;
+}
 .diffhead {
+  background: #252e2f;
   color: var(--muted);
   font-size: 11px;
 }
@@ -436,10 +443,14 @@ button.on {
   left: 0;
   grid-auto-rows: var(--row);
   border-bottom: 1px solid #46504d;
-  background: #1b2223;
+  --row-bg: #1b2223;
+  background: var(--row-bg);
 }
 .block:nth-child(even) {
-  background: #1e2626;
+  --row-bg: #1e2626;
+}
+.block > .badge {
+  background: var(--row-bg);
 }
 .song {
   border: 0;

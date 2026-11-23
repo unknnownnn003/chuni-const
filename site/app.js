@@ -20,6 +20,13 @@ const names = {
   ULT: "ULTIMA",
   WE: "WORLD’S END",
 };
+// The history catalog has both early and NEW-era identities for the tutorials.
+const tutorialIds = new Set([
+  "1:50:1",
+  "1:81:1",
+  "sdhd:A000:NEW:1:50",
+  "sdhd:A000:NEW:1:81",
+]);
 const states = {
   present: "已收录",
   possible: "可能存在",
@@ -95,7 +102,8 @@ function cover(s, cls = "cover") {
     ? `<img class="${cls}" src="data/jackets/${s.cover}.webp" alt="" decoding="async">`
     : `<span class="${cls}" aria-label="缺少曲绘"></span>`;
 }
-function cellHtml(c, i) {
+function cellHtml(c, i, tutorial) {
+  if (tutorial) return '<div class="cell nil">-</div>';
   const cell = c.timeline[i],
     flag = change(c, i),
     label = value(cell, c.d === "WE");
@@ -122,6 +130,7 @@ function update() {
     sort = $("sort").value;
   groups = [];
   for (const s of db.songs) {
+    const tutorial = tutorialIds.has(s.id);
     if (category && !s.genres.includes(category)) continue;
     const match = s.search.includes(query);
     const cs = s.charts.filter((c) => {
@@ -135,7 +144,8 @@ function update() {
         if (vi !== "" && !v && !c.marks?.[i]) return false;
         if (
           (lo !== "" || hi !== "") &&
-          (c.d === "WE" ||
+          (tutorial ||
+            c.d === "WE" ||
             v?.[0] !== "present" ||
             v[1] == null ||
             (lo !== "" && v[1] < Math.round(Number(lo) * 100)) ||
@@ -151,7 +161,7 @@ function update() {
     )
       continue;
     const level =
-      sort === "level"
+      sort === "level" && !tutorial
         ? Math.max(
             -1,
             ...cs.flatMap((c) =>
@@ -164,8 +174,8 @@ function update() {
                   ),
             ),
           )
-        : 0;
-    groups.push({ s, cs, level });
+        : -1;
+    groups.push({ s, cs, level, tutorial });
   }
   if (sort === "title")
     groups.sort((a, b) => a.s.title.localeCompare(b.s.title, "ja"));
@@ -213,10 +223,18 @@ function draw() {
   range = key;
   const html = groups
     .slice(l, end)
-    .map(
-      ({ s, cs, y }) =>
-        `<div class="block" style="top:${y}px"><button class="song ${cs.length < 2 ? "single" : ""}" style="grid-row:span ${Math.max(1, cs.length)}" data-id="${escape(s.id)}" title="${escape(s.title)}">${cover(s)}<span><strong>${escape(s.title)}</strong><small>${escape(s.artist || "曲师未知")}</small></span></button>${cs.map((c) => `<div class="badge ${c.d}"><span>${c.d}</span></div>` + columns.map((i) => cellHtml(c, i)).join("")).join("") || '<div class="badge">无谱面</div>'}</div>`,
-    )
+    .map(({ s, cs, y, tutorial }) => {
+      let rows = cs.map((c) =>
+        `<div class="badge ${c.d}"><span>${c.d}</span></div>` +
+        columns.map((i) => cellHtml(c, i, tutorial)).join("")
+      ).join("");
+      if (!cs.length) {
+        rows = tutorial
+          ? '<div class="badge">-</div>' + columns.map((i) => cellHtml(null, i, true)).join("")
+          : '<div class="badge">无谱面</div>';
+      }
+      return `<div class="block" style="top:${y}px"><button class="song ${cs.length < 2 ? "single" : ""}" style="grid-row:span ${Math.max(1, cs.length)}" data-id="${escape(s.id)}" title="${escape(s.title)}">${cover(s)}<span><strong>${escape(s.title)}</strong><small>${escape(s.artist || "曲师未知")}</small></span></button>${rows}</div>`;
+    })
     .join("");
   $("body").innerHTML =
     html || '<p class="empty">没有符合条件的曲目。请调整筛选或搜索词。</p>';
@@ -244,13 +262,29 @@ function close() {
     source = null;
   });
 }
+function snapshotTable(s) {
+  const tutorial = tutorialIds.has(s.id);
+  const charts = tutorial && !s.charts.length ? [null] : s.charts;
+  const headings = charts.map((c) => `<th>${c?.d ?? "定数"}</th>`).join("");
+  const rows = db.versions.map(([version], i) => {
+    const cells = charts.map((c) => {
+      const cell = c?.timeline[i];
+      const credit = cell?.[4];
+      const title = credit ? ` title="${escape(credit)}"` : "";
+      const label = tutorial ? "-" : value(cell, c.d === "WE");
+      return `<td${title}>${escape(label)}</td>`;
+    }).join("");
+    return `<tr><th>${escape(version)}</th>${cells}</tr>`;
+  }).join("");
+  return `<div class="mini"><table><thead><tr><th>日服版本</th>${headings}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
 function openSong(s, button) {
   source = button;
   button.querySelector(".cover").style.viewTransitionName = "jacket";
   transition(() => {
     button.querySelector(".cover").style.viewTransitionName = "";
     $("detail").innerHTML =
-      `<div class="profile">${cover(s)}<div><small>${escape(s.genres.join(" / "))} · #${s.num}</small><h2>${escape(s.title)}</h2><div>${escape(s.artist || "曲师未知")}</div></div></div><h3>谱面与谱师</h3>${s.charts.map((c) => `<div class="detailmeta"><b class="${c.d}" style="color:var(--dc)">${names[c.d]}</b>　${escape(c.designers.join(" / ") || "档案未署名")}</div>`).join("")}<h3>历代快照</h3><div class="mini"><table><thead><tr><th>日服版本</th>${s.charts.map((c) => `<th>${c.d}</th>`).join("")}</tr></thead><tbody>${db.versions.map(([v], i) => `<tr><th>${escape(v)}</th>` + s.charts.map((c) => `<td${c.timeline[i]?.[4] ? ` title="${escape(c.timeline[i][4])}"` : ""}>${escape(value(c.timeline[i], c.d === "WE"))}</td>`).join("") + "</tr>").join("")}</tbody></table></div>`;
+      `<div class="profile">${cover(s)}<div><small>${escape(s.genres.join(" / "))} · #${s.num}</small><h2>${escape(s.title)}</h2><div>${escape(s.artist || "曲师未知")}</div></div></div><h3>谱面与谱师</h3>${s.charts.map((c) => `<div class="detailmeta"><b class="${c.d}" style="color:var(--dc)">${names[c.d]}</b>　${escape(c.designers.join(" / ") || "档案未署名")}</div>`).join("")}<h3>历代快照</h3>${snapshotTable(s)}`;
     $("detail").querySelector(".cover").style.viewTransitionName = "jacket";
     modal.showModal();
     modal.scrollTop = 0;
